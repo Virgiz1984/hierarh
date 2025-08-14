@@ -355,7 +355,7 @@ neighbor_labels, neighbor_dists = compute_top_k_similar(X, labels, target_label,
 neighbor_indices = [idx_by_label[l] for l in neighbor_labels]
 
 # Таблица похожих (+ well/top/bottom/TEST/TYPE)
-extra_cols = [c for c in ["well", "top", "bottom", "TEST", "TYPE"] if c in df.columns]
+extra_cols = [c for c in ["well", "top", "bottom", 'BF', "TEST", "TYPE"] if c in df.columns]
 neighbors_extra = df.loc[neighbor_indices, extra_cols] if extra_cols else pd.DataFrame(index=neighbor_indices)
 neighbors_df = pd.DataFrame({id_col: neighbor_labels, "distance": neighbor_dists})
 if not neighbors_extra.empty:
