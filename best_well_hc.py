@@ -46,16 +46,29 @@ def make_preprocessor(numeric_cols: List[str], categorical_cols: List[str], stan
     if standardize:
         numeric_steps.append(("scaler", StandardScaler()))
     numeric_pipeline = Pipeline(steps=numeric_steps)
+    # Совместимость с разными версиями scikit-learn (sparse_output появилось в 1.2)
+    try:
+        ohe = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
+    except TypeError:
+        ohe = OneHotEncoder(handle_unknown="ignore", sparse=False)
     categorical_pipeline = Pipeline(steps=[
         ("imputer", SimpleImputer(strategy="most_frequent")),
-        ("ohe", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
+        ("ohe", ohe),
     ])
-    return ColumnTransformer(
-        transformers=[("num", numeric_pipeline, numeric_cols),
-                      ("cat", categorical_pipeline, categorical_cols)],
-        remainder="drop",
-        verbose_feature_names_out=False,
-    )
+    # ColumnTransformer: откат, если verbose_feature_names_out не поддерживается
+    try:
+        return ColumnTransformer(
+            transformers=[("num", numeric_pipeline, numeric_cols),
+                          ("cat", categorical_pipeline, categorical_cols)],
+            remainder="drop",
+            verbose_feature_names_out=False,
+        )
+    except TypeError:
+        return ColumnTransformer(
+            transformers=[("num", numeric_pipeline, numeric_cols),
+                          ("cat", categorical_pipeline, categorical_cols)],
+            remainder="drop",
+        )
 
 
 def ensure_unique_labels(labels: List[str]) -> List[str]:
@@ -185,7 +198,7 @@ st.subheader("Строки с наличием TEST")
 if "TEST" in df.columns:
     mask = df["TEST"].notna() & (df["TEST"].astype(str).str.strip() != "")
     cols = [c for c in ["group_number", "well", "Q", 'fluid type',  'top', 'bottom',
-                        'coll_type', 'h' , "Литология по ГИС", "TEST", "TYPE"] if c in df.columns]
+                        'coll_type', 'h' , 'BF', "Литология по ГИС", "TEST", "TYPE"] if c in df.columns]
     test_tbl = df.loc[mask, cols]
     
     if test_tbl.empty:
@@ -213,17 +226,24 @@ if "TEST" in df.columns:
             with col2:
                 # Фильтр по coll_type
                 if "coll_type" in test_tbl.columns:
-                    well_values = sorted(test_tbl["coll_type"].dropna().unique())
-                    selected_wells = st.multiselect("coll_type", options=well_values, default=well_values)
+                    coll_values = sorted(test_tbl["coll_type"].dropna().unique())
+                    selected_wells = st.multiselect("coll_type", options=coll_values, default=coll_values)
                 else:
                     selected_wells = []
                 
+                # Фильтр по Литология по качеству
+                if "BF" in test_tbl.columns:
+                    bf_values = sorted(test_tbl["BF"].dropna().unique())
+                    selected_bf = st.multiselect("BF", options=bf_values, default=bf_values)
+                else:
+                    selected_bf = []
+                
                 # Фильтр по Литология по ГИС
                 if "Литология по ГИС" in test_tbl.columns:
-                    lith_values = sorted(test_tbl["Литология по ГИС"].dropna().unique())
-                    selected_lith = st.multiselect("Литология по ГИС", options=lith_values, default=lith_values)
+                    lith_gis_values = sorted(test_tbl["Литология по ГИС"].dropna().unique())
+                    selected_lith_gis = st.multiselect("Литология по ГИС", options=lith_gis_values, default=lith_gis_values)
                 else:
-                    selected_lith = []
+                    selected_lith_gis = []
             
 
         
@@ -238,9 +258,12 @@ if "TEST" in df.columns:
         
         if selected_wells and "coll_type" in filtered_tbl.columns:
             filtered_tbl = filtered_tbl[filtered_tbl["coll_type"].isin(selected_wells)]
+            
+        if selected_bf and "BF" in filtered_tbl.columns:
+                filtered_tbl = filtered_tbl[filtered_tbl["BF"].isin(selected_bf)]
         
-        if selected_lith and "Литология по ГИС" in filtered_tbl.columns:
-            filtered_tbl = filtered_tbl[filtered_tbl["Литология по ГИС"].isin(selected_lith)]
+        if selected_lith_gis and "Литология по ГИС" in filtered_tbl.columns:
+            filtered_tbl = filtered_tbl[filtered_tbl["Литология по ГИС"].isin(selected_lith_gis)]
         
 
         # Показываем результат
