@@ -1,9 +1,6 @@
-io
-os
-typing
+streamlit
 numpy
 pandas
-streamlit
 matplotlib
-sklearn
+scikit-learn
 plotly
